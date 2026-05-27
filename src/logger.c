@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <sys/time.h>
 
 #include "logger.h"
 
@@ -16,16 +17,22 @@ static char current_filename[256];
 // ----------------------------------------------------------------------------------------- //
 
 
-//Formatted timestamp
 static void get_current_timestamp(char *buffer, size_t max_len) {
-    time_t rawtime;
-    struct tm *timeinfo;
+    struct timeval tv;
+    gettimeofday(&tv, NULL); // get time with microsecond precision
 
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
+    struct tm *timeinfo = localtime(&tv.tv_sec);
     
-    // Format: YYYY-MM-DD HH:MM:S
-    strftime(buffer, max_len, "%Y-%m-%d %H:%M:%S", timeinfo);
+    // First part of timestamp: [YYYY-MM-DD HH:MM:SS...
+    char time_str[20];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+    // remaining milliseconds and microseconds
+    int ms = tv.tv_usec / 1000;
+    int us = tv.tv_usec % 1000;
+
+    // Merge into final timestamp: [YYYY-MM-DD HH:MM:SS.mmm.uuu]
+    snprintf(buffer, max_len, "%s.%03d.%03d", time_str, ms, us);
 }
 
 
@@ -84,7 +91,7 @@ bool logger_init(const char *filename) {
 bool logger_write_data(int sender_id, double data) {
     if (log_fd == -1) return false;
 
-    char timestamp[20];
+    char timestamp[32];
     get_current_timestamp(timestamp, sizeof(timestamp));
 
     char buffer[256];
@@ -107,7 +114,7 @@ bool logger_write_data(int sender_id, double data) {
 bool logger_write_disconnect(int sender_id) {
     if (log_fd == -1) return false;
 
-    char timestamp[20];
+    char timestamp[32];
     get_current_timestamp(timestamp, sizeof(timestamp));
 
     char buffer[256];
@@ -145,7 +152,7 @@ bool logger_check_and_rotate(size_t max_size) {
 
         // Generate a unique filename for the archived log using the current timestamp
         char archive_name[512];
-        char timestamp[20];
+        char timestamp[32];
         get_current_timestamp(timestamp, sizeof(timestamp));
         // replace spaces and colons with underscores for file system compatibility
         for(int i=0; timestamp[i] != '\0'; i++) {
