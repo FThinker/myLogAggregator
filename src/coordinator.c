@@ -3,15 +3,19 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <string.h>
+#include <stdbool.h>
+#include <limits.h>
 #include "protocol.h"
 #include "network.h"
 #include "logger.h"
+#include <bits/pthread_stack_min-dynamic.h>
 
-#define COLOR_RED "\x1b[31m"
-#define COLOR_GRAY "\x1b[90m"
-#define COLOR_ORANGE "\x1b[33m"
-#define COLOR_RESET "\x1b[0m"
-#define COLOR_GREEN "\x1b[32m"
+#define COLOR_RED   "\033[0;31m"
+#define COLOR_GRAY "\033[0;90m"
+#define COLOR_ORANGE "\033[0;33m"
+#define COLOR_GREEN "\033[0;32m"
+#define COLOR_RESET "\033[0m"
 
 typedef struct {
     pthread_t thread_id;
@@ -41,7 +45,7 @@ void* worker_thread(void* arg) {
     free(arg); 
 
     int client_fd = thread_pool[my_slot].client_fd;
-    if(debug_mode) printf(COLOR_GRAY "[Thread %lu] Started handling new producer.\n", pthread_self() COLOR_RESET);
+    if(debug_mode) printf("[Thread %lu] Started handling new producer.\n", pthread_self());
 
     LogMessage msg;
     int current_sender_id = -1;
@@ -55,7 +59,7 @@ void* worker_thread(void* arg) {
             break;
         } 
         else if (bytes_read == 0) { // Client closed the connection
-            if(debug_mode) printf(COLOR_ORANGE "[Thread %lu] Producer has closed the communication (EOF).\n", pthread_self() COLOR_RESET);
+            if(debug_mode) printf("[Thread %lu] Producer has closed the communication (EOF).\n", pthread_self());
             if(current_sender_id != -1) {
                 logger_write_disconnect(current_sender_id);
             }
@@ -63,12 +67,12 @@ void* worker_thread(void* arg) {
         } 
         else if (bytes_read == sizeof(LogMessage)) { // Successful read
             current_sender_id = msg.sender_id;
-            if(debug_mode) printf(COLOR_GRAY "[Thread %lu] Received: ID=%d, Data=%.2f\n", pthread_self(), msg.sender_id, msg.data COLOR_RESET);
+            if(debug_mode) printf("[Thread %lu] Received: ID=%d, Data=%.2f\n", pthread_self(), msg.sender_id, msg.data);
 
             logger_write_data(msg.sender_id, msg.data);
         }
          else { // Partial read, which shouldn't happen with TCP if the message is small enough, but we handle it just in case
-            fprintf(stderr, COLOR_RED "Partial message received. Expected %lu bytes, got %zd bytes.\n", sizeof(LogMessage), bytes_read COLOR_RESET);
+            fprintf(stderr, "Partial message received. Expected %lu bytes, got %zd bytes.\n", sizeof(LogMessage), bytes_read);
             break;
         }
     }

@@ -1,4 +1,3 @@
-#include <logger.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +5,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <stdbool.h>
+
+#include "logger.h"
 
 static int log_fd = -1;
 static char current_filename[256];
@@ -62,14 +64,14 @@ bool logger_init(const char *filename) {
 // ----------------------------------------------------------------------------------------- //
 
 
-bool logger_write_data(int id_mittente, double dato) {
+bool logger_write_data(int sender_id, double data) {
     if (log_fd == -1) return false;
 
     char timestamp[20];
     get_current_timestamp(timestamp, sizeof(timestamp));
 
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "[%s, %d, %d]\n", timestamp, id_mittente, dato);
+    snprintf(buffer, sizeof(buffer), "[%s, %d, %f]\n", timestamp, sender_id, data);
 
     apply_lock(log_fd, F_WRLCK);
 
@@ -85,14 +87,14 @@ bool logger_write_data(int id_mittente, double dato) {
 // ----------------------------------------------------------------------------------------- //
 
 
-bool logger_write_disconnect(int id_mittente) {
+bool logger_write_disconnect(int sender_id) {
     if (log_fd == -1) return false;
 
     char timestamp[20];
     get_current_timestamp(timestamp, sizeof(timestamp));
 
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), "[%s, %d, \"DISCONNECT\"]\n", timestamp, id_mittente);
+    snprintf(buffer, sizeof(buffer), "[%s, %d, \"DISCONNECT\"]\n", timestamp, sender_id);
 
     apply_lock(log_fd, F_WRLCK);
     ssize_t bytes_written = write(log_fd, buffer, strlen(buffer));
