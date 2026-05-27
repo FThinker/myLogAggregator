@@ -10,6 +10,10 @@
 static int log_fd = -1;
 static char current_filename[256];
 
+
+// ----------------------------------------------------------------------------------------- //
+
+
 //Formatted timestamp
 static void get_current_timestamp(char *buffer, size_t max_len) {
     time_t rawtime;
@@ -21,6 +25,10 @@ static void get_current_timestamp(char *buffer, size_t max_len) {
     // Format: YYYY-MM-DD HH:MM:S
     strftime(buffer, max_len, "%Y-%m-%d %H:%M:%S", timeinfo);
 }
+
+
+// ----------------------------------------------------------------------------------------- //
+
 
 //Lock for the file log (F_SETLKW stop the thread without the lock)
 static int apply_lock(int fd, int lock_type) {
@@ -34,6 +42,10 @@ static int apply_lock(int fd, int lock_type) {
     return fcntl(fd, F_SETLKW, &lock);
 }
 
+
+// ----------------------------------------------------------------------------------------- //
+
+
 bool logger_init(const char *filename) {
     strncpy(current_filename, filename, sizeof(current_filename) - 1);
     
@@ -45,6 +57,10 @@ bool logger_init(const char *filename) {
     }
     return true;
 }
+
+
+// ----------------------------------------------------------------------------------------- //
+
 
 bool logger_write_data(int id_mittente, double dato) {
     if (log_fd == -1) return false;
@@ -65,6 +81,10 @@ bool logger_write_data(int id_mittente, double dato) {
     return (bytes_written > 0);
 }
 
+
+// ----------------------------------------------------------------------------------------- //
+
+
 bool logger_write_disconnect(int id_mittente) {
     if (log_fd == -1) return false;
 
@@ -80,6 +100,10 @@ bool logger_write_disconnect(int id_mittente) {
 
     return (bytes_written > 0);
 }
+
+
+// ----------------------------------------------------------------------------------------- //
+
 
 bool logger_check_and_rotate(size_t max_size) {
     if (log_fd == -1) return false;
@@ -129,6 +153,10 @@ bool logger_check_and_rotate(size_t max_size) {
     return true;
 }
 
+
+// ----------------------------------------------------------------------------------------- //
+
+
 void logger_close(void) {
     // Safely closes the log file descriptor and resets its state
     if (log_fd != -1) {
@@ -136,3 +164,6 @@ void logger_close(void) {
         log_fd = -1;
     }
 }
+
+
+// ----------------------------------------------------------------------------------------- //
