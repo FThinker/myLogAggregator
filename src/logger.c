@@ -8,11 +8,15 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include "logger.h"
 
 static int log_fd = -1;
 static char current_filename[256];
+
+// MUTEX interno al logger per evitare race conditions tra i thread del vostro processo
+static pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // ----------------------------------------------------------------------------------------- //
 
@@ -43,7 +47,7 @@ static void get_current_timestamp(char *buffer, size_t max_len) {
 static int apply_lock(int fd, int lock_type) {
     struct flock lock;
     memset(&lock, 0, sizeof(lock));
-    lock.l_type = lock_type;    // F_WRLCK (writing) o F_UNLCK (unlock)
+    lock.l_type = lock_type;    // F_WRLCK (writing) or F_UNLCK (unlock)
     lock.l_whence = SEEK_SET;   // Lock file
     lock.l_start = 0;
     lock.l_len = 0;             // End of the file
@@ -97,11 +101,16 @@ bool logger_write_data(int sender_id, double data) {
     char buffer[256];
     snprintf(buffer, sizeof(buffer), "[%s, %d, %f]\n", timestamp, sender_id, data);
 
+    // lock with mutex to stop other threads from racing
+    pthread_mutex_lock(&file_mutex);
+
     apply_lock(log_fd, F_WRLCK);
 
     ssize_t bytes_written = write(log_fd, buffer, strlen(buffer));
 
     apply_lock(log_fd, F_UNLCK);
+
+    pthread_mutex_unlock(&file_mutex);
     // ------------------------
 
     return (bytes_written > 0);
@@ -120,9 +129,11 @@ bool logger_write_disconnect(int sender_id) {
     char buffer[256];
     snprintf(buffer, sizeof(buffer), "[%s, %d, \"DISCONNECT\"]\n", timestamp, sender_id);
 
+    pthread_mutex_lock(&file_mutex);
     apply_lock(log_fd, F_WRLCK);
     ssize_t bytes_written = write(log_fd, buffer, strlen(buffer));
     apply_lock(log_fd, F_UNLCK);
+    pthread_mutex_unlock(&file_mutex);
 
     return (bytes_written > 0);
 }
@@ -191,6 +202,7 @@ bool logger_check_and_rotate(size_t max_size) {
         apply_lock(log_fd, F_UNLCK);
     }
 
+    pthread_mutex_unlock(&file_mutex);
     return true;
 }
 
@@ -200,10 +212,12 @@ bool logger_check_and_rotate(size_t max_size) {
 
 void logger_close(void) {
     // Safely closes the log file descriptor and resets its state
+    pthread_mutex_lock(&file_mutex);
     if (log_fd != -1) {
         close(log_fd);
         log_fd = -1;
     }
+    pthread_mutex_unlock(&file_mutex);
 }
 
 

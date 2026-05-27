@@ -20,7 +20,7 @@
 #define COLOR_GREEN "\033[0;32m"
 #define COLOR_RESET "\033[0m"
 
-#define ALARM_INTERVAL 5 // timer is 5 seconds
+#define ALARM_INTERVAL 1 // timer is 5 seconds
 
 typedef struct {
     pthread_t thread_id;
