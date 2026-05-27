@@ -5,6 +5,13 @@
 #include <pthread.h>
 #include "protocol.h"
 #include "network.h"
+#include "logger.h"
+
+#define COLOR_RED "\x1b[31m"
+#define COLOR_GRAY "\x1b[90m"
+#define COLOR_ORANGE "\x1b[33m"
+#define COLOR_RESET "\x1b[0m"
+#define COLOR_GREEN "\x1b[32m"
 
 typedef struct {
     pthread_t thread_id;
@@ -12,6 +19,8 @@ typedef struct {
     int needs_join;   // 1 = thread is done, must be cleared by joining
     int client_fd;
 } PoolSlot;
+
+bool debug_mode = false;
 
 PoolSlot thread_pool[MAX_BACKLOG];
 int thread_count = 0;
@@ -32,25 +41,36 @@ void* worker_thread(void* arg) {
     free(arg); 
 
     int client_fd = thread_pool[my_slot].client_fd;
-    printf("[Thread %lu] Started handling new producer.\n", pthread_self());
+    if(debug_mode) printf(COLOR_GRAY "[Thread %lu] Started handling new producer.\n", pthread_self() COLOR_RESET);
 
     LogMessage msg;
+    int current_sender_id = -1;
     
     // 2. Loop read until the client disconnects or an error occurs
     while (1) {
         ssize_t bytes_read = recv(client_fd, &msg, sizeof(LogMessage), 0);
         
         if (bytes_read == -1) { // Generic error during recv
-            perror("Error while receiving data");
+            if(debug_mode) perror(COLOR_RED "Error while receiving data" COLOR_RESET);
             break;
         } 
         else if (bytes_read == 0) { // Client closed the connection
-            printf("[Thread %lu] Producer has closed the communication (EOF).\n", pthread_self());
+            if(debug_mode) printf(COLOR_ORANGE "[Thread %lu] Producer has closed the communication (EOF).\n", pthread_self() COLOR_RESET);
+            if(current_sender_id != -1) {
+                logger_write_disconnect(current_sender_id);
+            }
             break;
         } 
         else if (bytes_read == sizeof(LogMessage)) { // Successful read
-            printf("[Thread %lu] Received: ID=%d, Data=%.2f\n", pthread_self(), msg.sender_id, msg.data);
-        } // messaggio parziale?
+            current_sender_id = msg.sender_id;
+            if(debug_mode) printf(COLOR_GRAY "[Thread %lu] Received: ID=%d, Data=%.2f\n", pthread_self(), msg.sender_id, msg.data COLOR_RESET);
+
+            logger_write_data(msg.sender_id, msg.data);
+        }
+         else { // Partial read, which shouldn't happen with TCP if the message is small enough, but we handle it just in case
+            fprintf(stderr, COLOR_RED "Partial message received. Expected %lu bytes, got %zd bytes.\n", sizeof(LogMessage), bytes_read COLOR_RESET);
+            break;
+        }
     }
 
     // 3. Closed specific socket of this client and thread died 
@@ -64,11 +84,30 @@ void* worker_thread(void* arg) {
 }
 
 
-int main() {
+int main(int argc, char *argv[]) {
+    // check for debug flag
+    if (argc > 1 && (strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0)) {
+        debug_mode = true;
+        printf(COLOR_GREEN "[INFO] Debug mode enabled. Output will be verbose.\n" COLOR_RESET);
+    }
+
+    if (!logger_init(LOG_FILE_NAME)) {
+        fprintf(stderr, COLOR_RED "Failed to initialize logger. Exiting.\n" COLOR_RESET);
+        exit(EXIT_FAILURE);
+    }
+
     init_pool();
+
+    // manually tweaking thread attributes to lower memory impact
+    pthread_attr_t thread_attr;
+    pthread_attr_init(&thread_attr);
+    // Stack size is the minimum allowed by OS (here, 16KB) + 32KB as a safety buffer
+    size_t minimal_stack_size = PTHREAD_STACK_MIN + 32768; 
+    pthread_attr_setstacksize(&thread_attr, minimal_stack_size);
+
     printf("Coordinator listening on port %d...\n", SERVER_PORT);
-    
     int server_fd = setup_server_socket(SERVER_PORT, MAX_BACKLOG);
+
     printf("Awaiting connections...\n");
 
     while(1){
@@ -108,14 +147,14 @@ int main() {
             *slot_ptr = free_slot; // Pass the slot index to the thread function
 
             if (pthread_create(&thread_pool[free_slot].thread_id, NULL, worker_thread, slot_ptr) != 0) {
-                perror("Error creating thread");
+                perror(COLOR_RED "Error creating thread" COLOR_RESET);
                 thread_pool[free_slot].is_busy = 0; // reset slot on failure
                 free(slot_ptr);
                 close(client_fd);
             }
         } else {
             // if no free slots are found, refuse any further connection request until a new slow is available
-            printf("Server is full, refusing the connection.\n");
+            printf(COLOR_ORANGE "Server is full, refusing the connection.\n" COLOR_RESET);
             close(client_fd);
         }
 
@@ -125,8 +164,10 @@ int main() {
     }
 
     // Close communications
+    pthread_attr_destroy(&thread_attr);
     close(server_fd);
-    printf("Coordinator stopped.\n");
+    logger_close();
+    printf(COLOR_GRAY "Coordinator stopped.\n" COLOR_RESET);
     
     return 0;
 }

@@ -56,3 +56,5 @@ dkms.conf
 
 # VSC Environment
 **/.vscode/
+
+!src/logs/
