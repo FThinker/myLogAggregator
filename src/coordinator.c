@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 700
+#include <errno.h> 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -6,6 +8,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <signal.h>
 #include "protocol.h"
 #include "network.h"
 #include "logger.h"
@@ -16,6 +19,8 @@
 #define COLOR_ORANGE "\033[0;33m"
 #define COLOR_GREEN "\033[0;32m"
 #define COLOR_RESET "\033[0m"
+
+#define ALARM_INTERVAL 5 // timer is 5 seconds
 
 typedef struct {
     pthread_t thread_id;
@@ -29,6 +34,26 @@ bool debug_mode = false;
 PoolSlot thread_pool[MAX_BACKLOG];
 int thread_count = 0;
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+volatile sig_atomic_t keep_running = 1;
+volatile sig_atomic_t check_log_size = 0;
+
+// Signal handlers
+void handle_sigint(int sig) {
+    keep_running = 0; // SIGINT makes main loop stop accepting new connections and start shutdown procedure
+}
+
+void handle_sigalrm(int sig) {
+    check_log_size = 1; // SIGALARM makes main loop check the file for rotation
+}
+
+void handle_sigpipe(int sig) {
+    // SIGPIPE gets handled here, but it never happens
+    // The disconnection happens when recv() returns 0.
+    // also, printf isnt safe inside handlers so it's better to use write    
+    const char *msg = "\nSIGPIPE detected.\n";
+    write(STDOUT_FILENO, msg, strlen(msg));
+}
 
 // initialize the thread pool
 void init_pool() {
@@ -55,12 +80,15 @@ void* worker_thread(void* arg) {
         ssize_t bytes_read = recv(client_fd, &msg, sizeof(LogMessage), 0);
         
         if (bytes_read == -1) { // Generic error during recv
+            if (errno == EINTR) continue;
+
             if(debug_mode) perror(COLOR_RED "Error while receiving data" COLOR_RESET);
             break;
         } 
         else if (bytes_read == 0) { // Client closed the connection
             if(debug_mode) printf("[Thread %lu] Producer has closed the communication (EOF).\n", pthread_self());
             if(current_sender_id != -1) {
+                // the real disconnections happens here (RIP SIGPIPE)
                 logger_write_disconnect(current_sender_id);
             }
             break;
@@ -95,6 +123,20 @@ int main(int argc, char *argv[]) {
         printf(COLOR_GREEN "[INFO] Debug mode enabled. Output will be verbose.\n" COLOR_RESET);
     }
 
+    // signal handlers setup using sigaction
+    struct sigaction sa;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+
+    sa.sa_handler = handle_sigint;
+    sigaction(SIGINT, &sa, NULL);
+
+    sa.sa_handler = handle_sigalrm;
+    sigaction(SIGALRM, &sa, NULL);
+
+    sa.sa_handler = handle_sigpipe;
+    sigaction(SIGPIPE, &sa, NULL);
+
     if (!logger_init(LOG_FILE_NAME)) {
         fprintf(stderr, COLOR_RED "Failed to initialize logger. Exiting.\n" COLOR_RESET);
         exit(EXIT_FAILURE);
@@ -114,9 +156,23 @@ int main(int argc, char *argv[]) {
 
     printf("Awaiting connections...\n");
 
-    while(1){
+    alarm(ALARM_INTERVAL); // start the timer for log checks
+
+    while(keep_running){
+        // check if alarm is up
+        if (check_log_size) {
+            if(debug_mode) printf(COLOR_GRAY "[INFO] Checking log size...\n" COLOR_RESET);
+            logger_check_and_rotate(MAX_LOG_SIZE);
+            check_log_size = 0;
+            alarm(ALARM_INTERVAL); // Reset the alarm for the next check
+        }
+
         int client_fd = accept(server_fd, NULL, NULL);
         if(client_fd < 0){
+            // If error is caused by a signal interrupt, just continue and try again
+            if (errno == EINTR) {
+                continue; 
+            }
             printf("Error accepting connection.\n");
             continue;
         }
@@ -167,11 +223,26 @@ int main(int argc, char *argv[]) {
         
     }
 
-    // Close communications
-    pthread_attr_destroy(&thread_attr);
+    // graceful shutdown
+    printf(COLOR_ORANGE "\n[SHUTDOWN] Interrupt received. Starting controlled shutdown...\n" COLOR_RESET);
+    
+    // Close listening sockets
     close(server_fd);
+    printf("[SHUTDOWN] Socket closed.\n");
+
+    // Wait for all threads to finish writing
+    for (int i = 0; i < MAX_BACKLOG; i++) {
+        if (thread_pool[i].is_busy == 1 || thread_pool[i].needs_join == 1) {
+            if(debug_mode) printf("[SHUTDOWN] Waiting for slot %d...\n", i);
+            pthread_join(thread_pool[i].thread_id, NULL);
+        }
+    }
+    printf("[SHUTDOWN] All threads terminated.\n");
+
+    // Close log file and cleanup
+    pthread_attr_destroy(&thread_attr);
     logger_close();
-    printf(COLOR_GRAY "Coordinator stopped.\n" COLOR_RESET);
+    printf(COLOR_GREEN "[SHUTDOWN] Coordinator stopped succesfully.\n" COLOR_RESET);
     
     return 0;
 }
