@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #include "logger.h"
 
@@ -49,8 +50,25 @@ static int apply_lock(int fd, int lock_type) {
 
 
 bool logger_init(const char *filename) {
+    // Ensure directory exists (if filename contains a '/'), create it if necessary
+    const char *slash = strrchr(filename, '/');
+    if (slash) {
+        char dir[256];
+        size_t dir_len = slash - filename;
+        if (dir_len >= sizeof(dir)) dir_len = sizeof(dir) - 1;
+        strncpy(dir, filename, dir_len);
+        dir[dir_len] = '\0';
+        if (mkdir(dir, 0755) == -1) {
+            if (errno != EEXIST) {
+                perror("Error creating log directory");
+                return false;
+            }
+        }
+    }
+
     strncpy(current_filename, filename, sizeof(current_filename) - 1);
-    
+    current_filename[sizeof(current_filename) - 1] = '\0';
+
     // O_WRONLY: only writing, O_CREAT: create if not exist, O_APPEND: append
     log_fd = open(current_filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (log_fd == -1) {
@@ -134,8 +152,23 @@ bool logger_check_and_rotate(size_t max_size) {
         for(int i=0; timestamp[i] != '\0'; i++) {
             if(timestamp[i] == ' ' || timestamp[i] == ':') timestamp[i] = '_';
         }
-        
-        snprintf(archive_name, sizeof(archive_name), "archive_%s_%s", timestamp, current_filename);
+        // Determine directory and base filename
+        char dir[256] = ".";
+        char base[256];
+        char *slash = strrchr(current_filename, '/');
+        if (slash) {
+            size_t dir_len = slash - current_filename;
+            if (dir_len >= sizeof(dir)) dir_len = sizeof(dir) - 1;
+            strncpy(dir, current_filename, dir_len);
+            dir[dir_len] = '\0';
+            strncpy(base, slash + 1, sizeof(base) - 1);
+            base[sizeof(base) - 1] = '\0';
+        } else {
+            strncpy(base, current_filename, sizeof(base) - 1);
+            base[sizeof(base) - 1] = '\0';
+        }
+
+        snprintf(archive_name, sizeof(archive_name), "%s/archive_%s_%s", dir, timestamp, base);
 
         // Rename the current log file to archive it
         rename(current_filename, archive_name);

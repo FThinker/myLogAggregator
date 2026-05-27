@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define LOG_FILE_NAME "coordinatore.log"
+#define LOG_FILE_NAME "logs/current.log"
 #define MAX_LOG_SIZE 102400
 
 // ######################################################################################### //
