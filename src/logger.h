@@ -3,23 +3,75 @@
 
 #include <stddef.h>
 
-// Configurazione (puoi cambiarle in base alle specifiche del progetto)
 #define LOG_FILE_NAME "coordinatore.log"
-#define MAX_LOG_SIZE 102400 // Esempio: 100 KB in byte
+#define MAX_LOG_SIZE 102400
 
-// Inizializza il logger (apre il file)
-int logger_init(const char *filename);
+// ######################################################################################### //
+//                                        FUNCTIONS                                          //
+// ######################################################################################### //
 
-// Scrive un dato nel log: [TIMESTAMP, ID_MITTENTE, DATO]
-int logger_write_data(int id_mittente, int dato);
+/**
+ * @brief initializes the logger by opening the log file for writing. 
+ *
+ * @param filename the name of the log file
+ * @warning if the file already exists, it will be overwritten.
+ * @return true on success, false on failure
+ */
+bool logger_init(const char *filename);
 
-// Scrive la disconnessione nel log: [TIMESTAMP, ID_MITTENTE, "DISCONNECT"]
-int logger_write_disconnect(int id_mittente);
 
-// Controlla la dimensione e archivia se necessario (chiamata dall'handler di SIGALRM)
-int logger_check_and_rotate(size_t max_size);
+// ----------------------------------------------------------------------------------------- //
 
-// Chiude il file di log (chiamata alla terminazione controllata SIGINT)
+
+/**
+ * @brief logs an entry for a new connection with the given sender ID.
+ * 
+ * @param sender_id the ID of the sender that established the connection
+ * @param data the data to be logged
+ * @return true on success, false on failure
+ */
+bool logger_write_data(int sender_id, double data);
+
+
+// ----------------------------------------------------------------------------------------- //
+
+
+/**
+ * @brief logs an entry for a disconnection with the given sender ID.
+ *
+ * @param sender_id the ID of the sender that disconnected
+ * @return true on success, false on failure
+ */
+bool logger_write_disconnect(int sender_id);
+
+
+// ----------------------------------------------------------------------------------------- //
+
+
+/**
+ * @brief checks the size of the log file and rotates it if it exceeds the specified maximum size.
+ *
+ * A rotation consists in archiving the current log file with a timestamped name and creating a new log file
+ * with the same orignal name to keep logging entries.
+ *
+ * @param max_size the maximum allowed size of the log file in bytes
+ * @return true if the rotation is successful, false otherwise
+ */
+bool logger_check_and_rotate(size_t max_size);
+
+
+// ----------------------------------------------------------------------------------------- //
+
+
+/**
+ * @brief closes the logger by closing the log file and releasing any resources used by the logger.
+ *
+ * @param void this function doesn't allow any parameters
+ */
 void logger_close(void);
+
+
+// ----------------------------------------------------------------------------------------- //
+
 
 #define LOGGER_H

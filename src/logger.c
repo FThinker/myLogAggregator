@@ -7,11 +7,10 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-// Variabile globale statica (visibile solo in questo file) per mantenere il descrittore del file
 static int log_fd = -1;
 static char current_filename[256];
 
-// Funzione interna per ottenere il timestamp formattato
+//Formatted timestamp
 static void get_current_timestamp(char *buffer, size_t max_len) {
     time_t rawtime;
     struct tm *timeinfo;
@@ -19,60 +18,55 @@ static void get_current_timestamp(char *buffer, size_t max_len) {
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     
-    // Formato: YYYY-MM-DD HH:MM:S
+    // Format: YYYY-MM-DD HH:MM:S
     strftime(buffer, max_len, "%Y-%m-%d %H:%M:%S", timeinfo);
 }
 
-// Funzione interna per gestire il lock (F_SETLKW blocca il processo/thread finché non ottiene il lock)
+//Lock for the file log (F_SETLKW stop the thread without the lock)
 static int apply_lock(int fd, int lock_type) {
     struct flock lock;
     memset(&lock, 0, sizeof(lock));
-    lock.l_type = lock_type;    // F_WRLCK (scrittura) o F_UNLCK (rilascio)
-    lock.l_whence = SEEK_SET;   // Blocca l'intero file
+    lock.l_type = lock_type;    // F_WRLCK (writing) o F_UNLCK (unlock)
+    lock.l_whence = SEEK_SET;   // Lock file
     lock.l_start = 0;
-    lock.l_len = 0;             // 0 significa fino alla fine del file
+    lock.l_len = 0;             // End of the file
     
     return fcntl(fd, F_SETLKW, &lock);
 }
 
-int logger_init(const char *filename) {
+bool logger_init(const char *filename) {
     strncpy(current_filename, filename, sizeof(current_filename) - 1);
     
-    // O_WRONLY: solo scrittura, O_CREAT: crea se non esiste, O_APPEND: scrive sempre alla fine
+    // O_WRONLY: only writing, O_CREAT: create if not exist, O_APPEND: append
     log_fd = open(current_filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (log_fd == -1) {
-        perror("Errore nell'apertura del file di log");
-        return -1;
+        perror("Error: Failed to open the file");
+        return false;
     }
-    return 0;
+    return true;
 }
 
-int logger_write_data(int id_mittente, int dato) {
-    if (log_fd == -1) return -1;
+bool logger_write_data(int id_mittente, double dato) {
+    if (log_fd == -1) return false;
 
     char timestamp[20];
     get_current_timestamp(timestamp, sizeof(timestamp));
 
-    // Prepariamo la stringa da scrivere
     char buffer[256];
     snprintf(buffer, sizeof(buffer), "[%s, %d, %d]\n", timestamp, id_mittente, dato);
 
-    // --- SEZIONE CRITICA ---
-    // 1. Prendi il lock di scrittura
     apply_lock(log_fd, F_WRLCK);
 
-    // 2. Scrivi nel file
     ssize_t bytes_written = write(log_fd, buffer, strlen(buffer));
 
-    // 3. Rilascia il lock
     apply_lock(log_fd, F_UNLCK);
     // ------------------------
 
-    return (bytes_written > 0) ? 0 : -1;
+    return (bytes_written > 0);
 }
 
-int logger_write_disconnect(int id_mittente) {
-    if (log_fd == -1) return -1;
+bool logger_write_disconnect(int id_mittente) {
+    if (log_fd == -1) return false;
 
     char timestamp[20];
     get_current_timestamp(timestamp, sizeof(timestamp));
@@ -84,58 +78,59 @@ int logger_write_disconnect(int id_mittente) {
     ssize_t bytes_written = write(log_fd, buffer, strlen(buffer));
     apply_lock(log_fd, F_UNLCK);
 
-    return (bytes_written > 0) ? 0 : -1;
+    return (bytes_written > 0);
 }
 
-int logger_check_and_rotate(size_t max_size) {
-    if (log_fd == -1) return -1;
+bool logger_check_and_rotate(size_t max_size) {
+    if (log_fd == -1) return false;
 
     struct stat st;
     
-    // Prendiamo il lock per evitare che altri scrivano mentre controlliamo/ruotiamo
+    // Lock the log file to prevent other users from writing to it
     apply_lock(log_fd, F_WRLCK);
 
-    // fstat ottiene le informazioni del file (tra cui la dimensione in byte)
+    // fstat give information about the file
     if (fstat(log_fd, &st) == -1) {
-        perror("Errore nel controllo dimensione file");
+        perror("Error checking log file size");
         apply_lock(log_fd, F_UNLCK);
-        return -1;
+        return false;
     }
 
     if ((size_t)st.st_size >= max_size) {
-        // Il file ha superato il limite: dobbiamo ruotarlo
+        // Close current file descriptor (this implicitly releases the lock as well)
         close(log_fd);
 
-        // Creiamo un nome per l'archivio usando il timestamp corrente
+        // Generate a unique filename for the archived log using the current timestamp
         char archive_name[512];
         char timestamp[20];
         get_current_timestamp(timestamp, sizeof(timestamp));
-        // Sostituiamo gli spazi e i due punti per evitare problemi con i nomi dei file
+        // replace spaces and colons with underscores for file system compatibility
         for(int i=0; timestamp[i] != '\0'; i++) {
             if(timestamp[i] == ' ' || timestamp[i] == ':') timestamp[i] = '_';
         }
         
         snprintf(archive_name, sizeof(archive_name), "archive_%s_%s", timestamp, current_filename);
 
-        // Rinominiamo il vecchio file (lo archiviamo)
+        // Rename the current log file to archive it
         rename(current_filename, archive_name);
 
-        // Riapriamo un nuovo file di log vuoto
+        // Reopen a brand new, empty log file with the original name
         log_fd = open(current_filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (log_fd == -1) {
-            perror("Errore nella ricreazione del file di log dopo rotazione");
-            return -1;
+            perror("Error recreating log file after rotation");
+            return false;
         }
-        printf("[LOGGER] File ruotato con successo. Vecchio file archiviato come: %s\n", archive_name);
+        printf("[LOGGER] File successfully rotated. Archived as: %s\n", archive_name);
     } else {
-        // Se non serve ruotarlo, rilasciamo semplicemente il lock
+        // If the file is still small enough, simply release the lock and do nothing
         apply_lock(log_fd, F_UNLCK);
     }
 
-    return 0;
+    return true;
 }
 
 void logger_close(void) {
+    // Safely closes the log file descriptor and resets its state
     if (log_fd != -1) {
         close(log_fd);
         log_fd = -1;
