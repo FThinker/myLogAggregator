@@ -56,3 +56,12 @@ dkms.conf
 
 # VSC Environment
 **/.vscode/
+
+# Log files
+*.log
+/logs/
+!/logs/.gitkeep
+# Coordinator and producer
+coordinator
+producer
+
