@@ -134,3 +134,16 @@ As a group project, contributors are limited to the existing team members. Howev
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
+[contributors-shield]: https://img.shields.io/github/contributors/fthinker/mylogaggregator.svg?style=for-the-badge
+[contributors-url]: https://github.com/fthinker/mylogaggregator/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/fthinker/mylogaggregator.svg?style=for-the-badge
+[forks-url]: https://github.com/fthinker/mylogaggregator/network/members
+[stars-shield]: https://img.shields.io/github/stars/fthinker/mylogaggregator.svg?style=for-the-badge
+[stars-url]: https://github.com/fthinker/mylogaggregator/stargazers
+[issues-shield]: https://img.shields.io/github/issues/fthinker/mylogaggregator.svg?style=for-the-badge
+[issues-url]: https://github.com/fthinker/mylogaggregator/issues
+[license-shield]: https://img.shields.io/github/license/fthinker/mylogaggregator.svg?style=for-the-badge
+[license-url]: https://github.com/fthinker/mylogaggregator/blob/main/LICENSE
+[c-shield]: https://img.shields.io/badge/LANGUAGE-C-00599C?style=for-the-badge
+[c-url]: https://en.wikipedia.org/wiki/C_(programming_language)
