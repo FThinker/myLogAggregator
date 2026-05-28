@@ -150,6 +150,8 @@ bool logger_write_disconnect(int sender_id) {
 bool logger_check_and_rotate(size_t max_size) {
     if (log_fd == -1) return false;
 
+    pthread_mutex_lock(&file_mutex);
+
     struct stat st;
     
     // Lock the log file to prevent other users from writing to it
