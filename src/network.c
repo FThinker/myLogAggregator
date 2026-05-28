@@ -9,6 +9,10 @@
 #define COLOR_RED   "\033[0;31m"
 #define COLOR_RESET "\033[0m"
 
+
+// ----------------------------------------------------------------------------------------- //
+
+
 // Create server socket, apply SO_REUSEADDR and bind+listen
 int setup_server_socket(int port, int maxconnections) {
     int server_fd  = socket(AF_INET, SOCK_STREAM, 0);
@@ -42,6 +46,10 @@ int setup_server_socket(int port, int maxconnections) {
     return server_fd;
 }
 
+
+// ----------------------------------------------------------------------------------------- //
+
+
 int connect_to_server(const char* ip, int port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -66,3 +74,6 @@ int connect_to_server(const char* ip, int port) {
     }
     return sock;
 }
+
+
+// ----------------------------------------------------------------------------------------- //

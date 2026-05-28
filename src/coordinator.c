@@ -88,6 +88,22 @@ void init_pool() {
 }
 
 
+// ----------------------------------------------------------------------------------------- //
+
+
+void print_usage(const char* prog_name) {
+    printf("\n");
+    printf("======================= Coordinator ====================\n");
+    printf(COLOR_GRAY);
+    printf("Usage: %s [-d]\n", prog_name);
+    printf("Options:\n");
+    printf("  -d, --debug   Enable debug mode\n");
+    printf(COLOR_RESET);
+    printf("========================================================\n");   
+    printf("\n");
+}
+
+
 // ######################################################################################### //
 //                                          THREAD                                           //
 // ######################################################################################### //
@@ -155,6 +171,9 @@ int main(int argc, char *argv[]) {
     if (argc > 1 && (strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0)) {
         debug_mode = true;
         printf(COLOR_GREEN "[INFO] Debug mode enabled. Output will be verbose.\n" COLOR_RESET);
+    } else if (argc > 1) {
+        print_usage(argv[0]);
+        exit(EXIT_FAILURE);
     }
 
     // signal handlers setup using sigaction
@@ -280,3 +299,6 @@ int main(int argc, char *argv[]) {
     
     return 0;
 }
+
+
+// ----------------------------------------------------------------------------------------- //

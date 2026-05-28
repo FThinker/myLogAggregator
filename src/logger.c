@@ -167,7 +167,7 @@ bool logger_check_and_rotate(size_t max_size) {
         close(log_fd);
 
         // Generate a unique filename for the archived log using the current timestamp
-        char archive_name[512];
+        char archive_name[1024];
         char timestamp[32];
         get_current_timestamp(timestamp, sizeof(timestamp));
         // replace spaces and colons with underscores for file system compatibility
