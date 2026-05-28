@@ -1,13 +1,15 @@
-[![Contributors](https://img.shields.io/github/contributors/fthinker/mylogaggregator.svg?style=for-the-badge)](https://github.com/fthinker/mylogaggregator/graphs/contributors)
-[![Forks](https://img.shields.io/github/forks/fthinker/mylogaggregator.svg?style=for-the-badge)](https://github.com/fthinker/mylogaggregator/network/members)
-[![Stargazers](https://img.shields.io/github/stars/fthinker/mylogaggregator.svg?style=for-the-badge)](https://github.com/fthinker/mylogaggregator/stargazers)
-[![Issues](https://img.shields.io/github/issues/fthinker/mylogaggregator.svg?style=for-the-badge)](https://github.com/fthinker/mylogaggregator/issues)
-[![MIT License](https://img.shields.io/github/license/fthinker/mylogaggregator.svg?style=for-the-badge)](https://github.com/fthinker/mylogaggregator/blob/main/LICENSE)
-[![C](https://img.shields.io/badge/LANGUAGE-C-00599C?style=for-the-badge)](https://en.wikipedia.org/wiki/C_(programming_language))
-
-<br />
+<a id="readme-top"></a>
 <div align="center">
-  <h1 align="center"><strong>myLogAggregator</strong></h1>
+  
+  [![Contributors][contributors-shield]][contributors-url]
+  [![Forks][forks-shield]][forks-url]
+  [![Stargazers][stars-shield]][stars-url]
+  [![Issues][issues-shield]][issues-url]
+  [![MIT License][license-shield]][license-url]
+  [![C][c-shield]][c-url]
+
+  <br />
+  <h1 align="center"><b>myLogAggregator</b></h1>
 
   <p align="center">
     A custom C distributed log aggregator developed as a group project for the exam "Sistemi Operativi II" in Sapienza's Bachelor of Computer Science course.
@@ -18,6 +20,8 @@
     <a href="https://github.com/fthinker/mylogaggregator/issues">Request new features</a>
   </p>
 </div>
+
+
 
 ## About The Project
 
