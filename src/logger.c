@@ -12,6 +12,11 @@
 
 #include "logger.h"
 
+#define COLOR_RED   "\033[0;31m"
+#define COLOR_GREEN "\033[0;32m"
+#define COLOR_GRAY "\033[0;90m"
+#define COLOR_RESET "\033[0m"
+
 static int log_fd = -1;
 static char current_filename[256];
 
@@ -70,7 +75,7 @@ bool logger_init(const char *filename) {
         dir[dir_len] = '\0';
         if (mkdir(dir, 0755) == -1) {
             if (errno != EEXIST) {
-                perror("Error creating log directory");
+                perror(COLOR_RED "[LOGGER] Error creating log directory" COLOR_RESET);
                 return false;
             }
         }
@@ -82,7 +87,7 @@ bool logger_init(const char *filename) {
     // O_WRONLY: only writing, O_CREAT: create if not exist, O_APPEND: append
     log_fd = open(current_filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (log_fd == -1) {
-        perror("Error: Failed to open the file");
+        perror(COLOR_RED "[LOGGER] Error: Failed to open the file" COLOR_RESET);
         return false;
     }
     return true;
@@ -152,7 +157,7 @@ bool logger_check_and_rotate(size_t max_size) {
 
     // fstat give information about the file
     if (fstat(log_fd, &st) == -1) {
-        perror("Error checking log file size");
+        perror(COLOR_RED "[LOGGER] Error checking log file size" COLOR_RESET);
         apply_lock(log_fd, F_UNLCK);
         return false;
     }
@@ -193,10 +198,10 @@ bool logger_check_and_rotate(size_t max_size) {
         // Reopen a brand new, empty log file with the original name
         log_fd = open(current_filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (log_fd == -1) {
-            perror("Error recreating log file after rotation");
+            perror(COLOR_RED "[LOGGER] Error recreating log file after rotation" COLOR_RESET);
             return false;
         }
-        printf("[LOGGER] File successfully rotated. Archived as: %s\n", archive_name);
+        printf(COLOR_GREEN "[LOGGER] File successfully rotated. Archived as: %s\n" COLOR_RESET, archive_name);
     } else {
         // If the file is still small enough, simply release the lock and do nothing
         apply_lock(log_fd, F_UNLCK);

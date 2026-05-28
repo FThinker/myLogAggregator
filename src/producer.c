@@ -6,14 +6,18 @@
 #include "protocol.h"
 #include "network.h"
 
+#define COLOR_RED   "\033[0;31m"
+#define COLOR_GRAY "\033[0;90m"
+#define COLOR_RESET "\033[0m"
+
 int main() {
     // generate a random seed based on current time and PID
     srand(time(NULL) ^ getpid());
 
-    printf("Starting producer (PID: %d)...\n", getpid());
+    printf(COLOR_GRAY "[Producer %d] Starting producer...\n" COLOR_RESET, getpid());
 
     int sock = connect_to_server(SERVER_IP, SERVER_PORT);
-    printf("Succesfully connected to coordinator.\n");
+    printf(COLOR_GREEN "[Producer %d] Succesfully connected to coordinator.\n" COLOR_RESET, getpid());
 
     // Test message
     LogMessage msg;
@@ -22,11 +26,11 @@ int main() {
 
     // Test send
     if (send(sock, &msg, sizeof(LogMessage), 0) < 0) {
-        perror("Error whilst sending message");
+        perror(COLOR_RED "[Producer %d] Error whilst sending message" COLOR_RESET, getpid());
         exit(EXIT_FAILURE);
     }
 
-    printf("Message sent (ID: %d, Data: %.2f)!\n", msg.sender_id, msg.data);
+    printf(COLOR_GRAY "[Producer %d] Message sent (ID: %d, Data: %.2f)!\n" COLOR_RESET, getpid(), msg.sender_id, msg.data);
 
     close(sock);
     return 0;

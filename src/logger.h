@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 #define LOG_FILE_NAME "logs/current.log"
-#define MAX_LOG_SIZE 20480
+#define MAX_LOG_SIZE 51200 // 50KB
 
 // ######################################################################################### //
 //                                        FUNCTIONS                                          //
