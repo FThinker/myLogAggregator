@@ -30,12 +30,12 @@ int setup_server_socket(int port, int maxconnections) {
     address.sin_port = htons(port);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror(COLOR_RED "[NETWORK] Error while attempting bind between socket %d and address %s" COLOR_RESET, server_fd, inet_ntoa(address.sin_addr));
+        perror(COLOR_RED "[NETWORK] Error while attempting bind" COLOR_RESET);
         exit(EXIT_FAILURE);
     }
 
     if (listen(server_fd, 10) < 0) {
-        perror(COLOR_RED "[NETWORK] Error while attempting listen on socket %d" COLOR_RESET, server_fd);
+        perror(COLOR_RED "[NETWORK] Error while attempting listen" COLOR_RESET);
         exit(EXIT_FAILURE);
     }
 

@@ -61,7 +61,6 @@ dkms.conf
 *.log
 /logs/
 !/logs/.gitkeep
-
 # Coordinator and producer
 coordinator
 producer
