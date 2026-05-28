@@ -20,7 +20,7 @@
 static int log_fd = -1;
 static char current_filename[256];
 
-// MUTEX interno al logger per evitare race conditions tra i thread del vostro processo
+// mutex to protect concurrent access between threads to the log file
 static pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // ----------------------------------------------------------------------------------------- //
